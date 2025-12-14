@@ -94,7 +94,8 @@ struct PermutationChipConfig<P: PermutationParams> {
     params: P,
     s_mds_mul: Selector,
     s_add_rcs: Selector,
-    s_sub_bytes: Selector // TODO: figure out how to capture the selector for Poseidon's partial rounds, combine in 1 gate?
+    s_sub_bytes_full: Selector,
+    s_sub_bytes_partial: Selector // specifically for Poseidon partial rounds, unused with Rescue-Prime (no performance hit)
 }
 
 // structure for the permutation chip
@@ -140,7 +141,8 @@ impl<F: PrimeField, P: PermutationParams> PermutationChip<F, P> {
         // define the necessary selectors
         let s_mds_mul = meta.selector();
         let s_add_rcs = meta.selector();
-        let s_sub_bytes = meta.selector();
+        let s_sub_bytes_full = meta.selector();
+        let s_sub_bytes_partial = meta.selector();
 
         // enable equality on the instance and advice columns
         meta.enable_equality(instance);
@@ -204,9 +206,26 @@ impl<F: PrimeField, P: PermutationParams> PermutationChip<F, P> {
             ]
         });
 
-        // SubBytes / S-Box gate
-        meta.create_gate("SB_Gate", |meta| {
-            // TODO: figure out whether poseidon gets 2 gates for partial and full rounds, or if I can abstract it somehow
+        // SubBytes / S-Box gate for all state elements, used by both permutations
+        meta.create_gate("SB_Full_Gate", |meta| {
+            let s_sub_bytes_full = meta.query_selector(s_sub_bytes_full);
+            let a0 = meta.query_advice(advice[0], Rotation::cur());
+            let a1 = meta.query_advice(advice[1], Rotation::cur());
+            let a2 = meta.query_advice(advice[2], Rotation::cur());
+            let a0_next = meta.query_advice(advice[0], Rotation::next());
+            let a1_next = meta.query_advice(advice[1], Rotation::next());
+            let a2_next = meta.query_advice(advice[2], Rotation::next());
+
+            //TODO: figure out constraint, need to reference alpha or alpha_inv from permutation config?
+        });
+
+        // SubBytes / S-Box gate for only the first state element, used by Poseidon, no hit to Rescue-Prime since it is unused
+        meta.create_gate("SB_Partial_Gate", |meta| {
+            let s_sub_bytes_partial = meta.query_selector(s_sub_bytes_partial);
+            let a0 = meta.query_advice(advice[0], Rotation::cur());
+            let a0_next = meta.query_advice(advice[0], Rotation::next());
+
+            //TODO: write constraint and reference permutation config struct
         });
 
         // return a complete PermutationChipConfig
