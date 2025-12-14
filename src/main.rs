@@ -153,6 +153,36 @@ impl<F: PrimeField, P: PermutationParams> PermutationChip<F, P> {
             meta.enable_constant(*column);
         }
 
+        // MDS multiply gate - linear layer for Poseidon and Rescue-Prime
+        meta.create_gate("MDS_Mul_Gate", |meta| {
+            let s_mds_mul = meta.query_selector(s_mds_mul);
+            let a0 = meta.query_advice(advice[0], Rotation::cur());
+            let a1 = meta.query_advice(advice[1], Rotation::cur());
+            let a2 = meta.query_advice(advice[2], Rotation::cur());
+            let a0_next = meta.query_advice(advice[0], Rotation::next());
+            let a1_next = meta.query_advice(advice[1], Rotation::next());
+            let a2_next = meta.query_advice(advice[2], Rotation::next());
+
+            // shared MDS matrix elements
+            let common_mds = &params.common().mds;
+            let mds_0_0 = Expression::Constant(F::from_str_vartime(&common_mds[0][0]).unwrap());
+            let mds_0_1 = Expression::Constant(F::from_str_vartime(&common_mds[0][1]).unwrap());
+            let mds_0_2 = Expression::Constant(F::from_str_vartime(&common_mds[0][2]).unwrap());
+            let mds_1_0 = Expression::Constant(F::from_str_vartime(&common_mds[1][0]).unwrap());
+            let mds_1_1 = Expression::Constant(F::from_str_vartime(&common_mds[1][1]).unwrap());
+            let mds_1_2 = Expression::Constant(F::from_str_vartime(&common_mds[1][2]).unwrap());
+            let mds_2_0 = Expression::Constant(F::from_str_vartime(&common_mds[2][0]).unwrap());
+            let mds_2_1 = Expression::Constant(F::from_str_vartime(&common_mds[2][1]).unwrap());
+            let mds_2_2 = Expression::Constant(F::from_str_vartime(&common_mds[2][2]).unwrap());
+
+            // constraint checks matrix vector product
+            vec![
+                s_mds_mul.clone() * (a0_next - (a0.clone()*mds_0_0 + a1.clone()*mds_0_1 + a2.clone()*mds_0_2)),
+                s_mds_mul.clone() * (a1_next - (a0.clone()*mds_1_0 + a1.clone()*mds_1_1 + a2.clone()*mds_1_2)),
+                s_mds_mul * (a2_next - (a0*mds_2_0 + a1*mds_2_1 + a2*mds_2_2))
+            ]
+        });
+
         // AddRoundConstants / InjectRoundConstants gate
         meta.create_gate("ARC_Gate", |meta| {
             let s_add_rcs = meta.query_selector(s_add_rcs);
