@@ -92,7 +92,7 @@ struct PermutationChipConfig<P: PermutationParams> {
     fixed: [Column<Fixed>; 3],
     instance: Column<Instance>,
     params: P,
-    s_sds_mul: Selector,
+    s_mds_mul: Selector,
     s_add_rcs: Selector,
     s_sub_bytes: Selector // TODO: figure out how to capture the selector for Poseidon's partial rounds, combine in 1 gate?
 }
@@ -135,8 +135,23 @@ impl<F: PrimeField, P: PermutationParams> PermutationChip<F, P> {
         advice: [Column<Advice>; 3],
         fixed: [Column<Fixed>; 3],
         instance: Column<Instance>, 
+        params: P
     ) -> <Self as Chip<F>>::Config {
-        
+        // define the necessary selectors
+        let s_mds_mul = meta.selector();
+        let s_add_rcs = meta.selector();
+        let s_sub_bytes = meta.selector();
+
+        // return a complete PermutationChipConfig
+        PermutationChipConfig {
+            advice,
+            fixed, 
+            instance, 
+            params,
+            s_mds_mul,
+            s_add_rcs,
+            s_sub_bytes
+        }
     }
 }
 
