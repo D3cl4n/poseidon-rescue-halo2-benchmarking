@@ -162,6 +162,30 @@ impl<F: PrimeField, P: PermutationParams> Chip<F> for RescueChip<F, P> {
     }
 }
 
+// helper methods that both chips call when configuring (gate construction, column configurations, etc.)
+// gates created are stored in the ConstraintSystem instance
+fn create_arc_gate<F: PrimeField>(meta: &mut ConstraintSystem<F>, advice: [Column<Advice>; 3], fixed: [Column<Fixed>; 3], s_add_rcs: Selector) {
+    meta.create_gate("ARC_Gate", |meta| {
+        let s_add_rcs = meta.query_selector(s_add_rcs);
+        let a0 = meta.query_advice(advice[0], Rotation::cur());
+        let a1 = meta.query_advice(advice[1], Rotation::cur());
+        let a2 = meta.query_advice(advice[2], Rotation::cur());
+        let a0_next = meta.query_advice(advice[0], Rotation::next());
+        let a1_next = meta.query_advice(advice[1], Rotation::next());
+        let a2_next = meta.query_advice(advice[2], Rotation::next());
+        let rc0 = meta.query_fixed(fixed[0]); // query_fixed reads from current row when gate is active
+        let rc1 = meta.query_fixed(fixed[1]);
+        let rc2 = meta.query_fixed(fixed[2]);
+
+        // constraint should be vec![0, 0, 0]
+        vec![
+            s_add_rcs.clone() * (a0_next - (a0 + rc0)), 
+            s_add_rcs.clone() * (a1_next - (a1 + rc1)), 
+            s_add_rcs * (a2_next - (a2 + rc2))
+        ]
+    });
+}
+
 
 // main function
 fn main() {
