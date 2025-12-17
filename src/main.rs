@@ -115,48 +115,10 @@ struct RescuePrimeChipConfig<P: PermutationParams> {
     s_sub_bytes_inv: Selector
 }
 
-// trait that both PoseidonChipConfig and RescuePrimeChipConfig implement
-trait ChipConfig: Clone + Debug {
-    fn common(&self) -> &CircuitParameters;
-}
-
-// implementations for the ChipConfig trait
-impl<P: PermutationParams> ChipConfig for PoseidonChipConfig<P> {
-    fn common(&self) -> &CircuitParameters {
-        &self.circuit_params
-    }
-}
-
-impl<P: PermutationParams> ChipConfig for RescuePrimeChipConfig<P> {
-    fn common(&self) -> &CircuitParameters {
-        &self.circuit_params
-    }
-}
-
-// structure for the permutation chip
-struct PermutationChip<F: PrimeField, T: ChipConfig> {
-    config: T,
-    _marker: PhantomData<F>,
-}
-
 // structure to store numbers in cells
 struct Number<F: PrimeField>(AssignedCell<F, F>);
 
-// implement the chip trait for PermutationChip
-impl<F: PrimeField, T: ChipConfig> Chip<F> for PermutationChip<F, T> {
-    type Config = T;
-    type Loaded = ();
 
-    // getter for the chip configuration
-    fn config(&self) -> &Self::Config {
-        &self.config
-    }
-
-    // getter for the loaded type
-    fn loaded(&self) -> &Self::Loaded {
-        &()
-    }
-}
 
 
 // main function
