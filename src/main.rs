@@ -304,7 +304,12 @@ fn create_sbox_inv_gate_rs<F: PrimeField>(
         let a1_next = meta.query_advice(advice[1], Rotation::next());
         let a2_next = meta.query_advice(advice[2], Rotation::next());
 
-        // TODO: figure out constraint for a' = a^alpha_inv which is huge
+        // constrain a_next^alpha = a_current instead of a_next = a_current^alpha_inv
+        vec![
+            s_sub_bytes_inv.clone() * (a0 - (a0_next.clone() * a0_next.clone() * a0_next)),
+            s_sub_bytes_inv.clone() * (a1 - (a1_next.clone() * a1_next.clone() * a1_next)),
+            s_sub_bytes_inv * (a2 - (a2_next.clone() * a2_next.clone() * a2_next))
+        ]
     });
 }
 
