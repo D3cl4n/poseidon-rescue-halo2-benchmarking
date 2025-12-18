@@ -229,21 +229,41 @@ fn create_mds_mul_gate<F: PrimeField>(
 }
 
 // helper functions for creating Poseidon specific gates
-fn create_partial_sbox_gate<F: PrimeField>(
+fn create_partial_sbox_gate_ps<F: PrimeField>(
     meta: &mut ConstraintSystem<F>,
-    advice: [Column<Advice>; 3],
+    advice: Column<Advice>,
     s_sub_bytes_partial: Selector, 
-    alpha: F
 ) {
-    meta.create_gate("Poseidon_partial_sbox_gate", |meta| {
+    meta.create_gate("PS_partial_sbox_gate", |meta| {
         let s_sub_bytes_partial = meta.query_selector(s_sub_bytes_partial);
-        let a0 = meta.query_advice(advice[0], Rotation::cur()); // state[0] = state[0]**5
-        let a0_next = meta.query_advice(advice[0], Rotation::next());
+        let a0 = meta.query_advice(advice, Rotation::cur()); // state[0] = state[0]**5, alpha = 5
+        let a0_next = meta.query_advice(advice, Rotation::next());
 
         vec![s_sub_bytes_partial* (a0_next - (a0.clone()*a0.clone()*a0.clone()*a0.clone()*a0))]
     });
 }
 
+fn create_full_sbox_gate_ps<F: PrimeField>(
+    meta: &mut ConstraintSystem<F>,
+    advice: [Column<Advice>; 3],
+    s_sub_bytes_full: Selector, 
+) {
+    meta.create_gate("PS_full_sbox_gate", |meta| {
+        let s_sub_bytes_full = meta.query_selector(s_sub_bytes_full);
+        let a0 = meta.query_advice(advice[0], Rotation::cur());
+        let a1 = meta.query_advice(advice[1], Rotation::cur());
+        let a2 = meta.query_advice(advice[2], Rotation::cur()); 
+        let a0_next = meta.query_advice(advice[0], Rotation::next());
+        let a1_next = meta.query_advice(advice[1], Rotation::next());
+        let a2_next = meta.query_advice(advice[2], Rotation::next()); 
+
+        vec![
+            s_sub_bytes_full.clone() * (a0_next - (a0.clone()*a0.clone()*a0.clone()*a0.clone()*a0)),
+            s_sub_bytes_full.clone() * (a1_next - (a1.clone()*a1.clone()*a1.clone()*a1.clone()*a1)),
+            s_sub_bytes_full * (a2_next - (a2.clone()*a2.clone()*a2.clone()*a2.clone()*a2))
+        ]
+    });
+}
 
 // helper functions for creating Rescue-Prime specific gates
 
