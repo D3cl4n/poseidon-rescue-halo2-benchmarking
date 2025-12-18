@@ -290,6 +290,24 @@ fn create_sbox_gate_rs<F: PrimeField>(
     });
 }
 
+fn create_sbox_inv_gate_rs<F: PrimeField>(
+    meta: &mut ConstraintSystem<F>,
+    advice: [Column<Advice>; 3],
+    s_sub_bytes_inv: Selector
+) {
+    meta.create_gate("RS_sbox_inv_gate", |meta| {
+        let s_sub_bytes_inv = meta.query_selector(s_sub_bytes_inv);
+        let a0 = meta.query_advice(advice[0], Rotation::cur());
+        let a1 = meta.query_advice(advice[1], Rotation::cur());
+        let a2 = meta.query_advice(advice[2], Rotation::cur()); 
+        let a0_next = meta.query_advice(advice[0], Rotation::next());
+        let a1_next = meta.query_advice(advice[1], Rotation::next());
+        let a2_next = meta.query_advice(advice[2], Rotation::next());
+
+        // TODO: figure out constraint for a' = a^alpha_inv which is huge
+    });
+}
+
 // main function
 fn main() {
     println!("Hello, world!");
