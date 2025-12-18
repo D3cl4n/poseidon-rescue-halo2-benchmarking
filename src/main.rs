@@ -350,6 +350,7 @@ impl<F: PrimeField, P: PermutationParams<F>> PoseidonChip<F, P> {
         create_arc_gate(meta, advice, fixed, s_add_rcs);
         create_mds_mul_gate(meta, advice, s_mds_mul, &params.common().mds);
         create_full_sbox_gate_ps(meta, advice, s_sub_bytes_full);
+        create_partial_sbox_gate_ps(meta, advice[0], s_sub_bytes_partial);
 
         let circuit_params = CircuitParameters {
             advice,
@@ -371,6 +372,62 @@ impl<F: PrimeField, P: PermutationParams<F>> PoseidonChip<F, P> {
 }
 
 // implementation of additional methods for the RescueChip
+impl<F: PrimeField, P: PermutationParams<F>> RescueChip<F, P> {
+    // constructor
+    fn construct(config: <Self as Chip<F>>::Config) -> Self {
+        RescueChip { config, _marker: PhantomData}
+    }
+
+    // configure the chip including all gates, constraints, and selectors
+    fn configure(
+        meta: &mut ConstraintSystem<F>,
+        advice: [Column<Advice>; 3],
+        fixed: [Column<Fixed>; 3],
+        instance: Column<Instance>,
+        params: P
+    ) -> <Self as Chip<F>>::Config {
+        // enable equality constraints on the instance column
+        meta.enable_equality(instance);
+
+        // enable equality constraits on all advice columns
+        for column in &advice {
+            meta.enable_equality(*column);
+        }
+
+        // enable constant on all the fixed columns
+        for column in &fixed {
+            meta.enable_constant(*column);
+        }
+
+        let s_add_rcs = meta.selector();
+        let s_mds_mul = meta.selector();
+        let s_sub_bytes = meta.selector();
+        let s_sub_bytes_inv = meta.selector();  
+
+        // create gates and constraints
+        create_arc_gate(meta, advice, fixed, s_add_rcs);
+        create_mds_mul_gate(meta, advice, s_mds_mul, &params.common().mds);
+        create_sbox_gate_rs(meta, advice, s_sub_bytes);
+        create_sbox_inv_gate_rs(meta, advice, s_sub_bytes_inv);
+
+        let circuit_params = CircuitParameters {
+            advice,
+            fixed,
+            instance,
+            s_mds_mul,
+            s_add_rcs
+        };
+        
+        // return the config
+        RescueChipConfig {
+            permutation_params: params,
+            circuit_params,
+            _marker: PhantomData,
+            s_sub_bytes,
+            s_sub_bytes_inv
+        }
+    }
+}
 
 // main function
 fn main() {
