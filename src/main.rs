@@ -228,6 +228,25 @@ fn create_mds_mul_gate<F: PrimeField>(
     });
 }
 
+// helper functions for creating Poseidon specific gates
+fn create_partial_sbox_gate<F: PrimeField>(
+    meta: &mut ConstraintSystem<F>,
+    advice: [Column<Advice>; 3],
+    s_sub_bytes_partial: Selector, 
+    alpha: F
+) {
+    meta.create_gate("Poseidon_partial_sbox_gate", |meta| {
+        let s_sub_bytes_partial = meta.query_selector(s_sub_bytes_partial);
+        let a0 = meta.query_advice(advice[0], Rotation::cur()); // state[0] = state[0]**5
+        let a0_next = meta.query_advice(advice[0], Rotation::next());
+
+        vec![s_sub_bytes_partial* (a0_next - (a0.clone()*a0.clone()*a0.clone()*a0.clone()*a0))]
+    });
+}
+
+
+// helper functions for creating Rescue-Prime specific gates
+
 
 // main function
 fn main() {
