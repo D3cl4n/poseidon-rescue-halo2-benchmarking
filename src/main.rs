@@ -596,7 +596,8 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
 }
 
 // implementation of the PermutationInstructions trait for the RescueChip
-impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
+// TODO: review if this is sketchy?
+impl<F: PrimeField + std::convert::AsRef<[u64]>> PermutationInstructions<F> for RescueChip<F> {
     type Num = Number<F>;
 
     fn expose_as_public(&self, mut layouter: impl Layouter<F>, num: Self::Num, row: usize) -> Result<(), Error> {
@@ -631,7 +632,9 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                 };
 
                 // helper function for MDS multiplication
-                let mds_mul = |state: &mut [AssignedCell<F, F>; 3], region: &mut Region<F>, offset: &mut usize| -> Result<(), Error> {
+                let mds_mul = |
+                    state: &mut [AssignedCell<F, F>; 3], region: &mut Region<F>, offset: &mut usize
+                | -> Result<(), Error> {
                     let mds = [
                         [
                             config.permutation_params.common_params.mds[0][0], 
@@ -680,6 +683,32 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     Ok(())
                 };
 
+                // helper function for injecting the round constants
+                let inject_rcs = |
+                    state: &mut [AssignedCell<F, F>; 3], region: &mut Region<F>, offset: &mut usize, constant_idx: &mut usize
+                | -> Result<(), Error> {
+                    // assign the needed round constants to the fixed column for gate to read from, use local vars for state
+                    let rc0 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx]).unwrap();
+                    let rc1 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 1]).unwrap();
+                    let rc2 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 2]).unwrap();
+
+                    config.circuit_params.s_add_rcs.enable(region, *offset)?; // enable the ARC selector 
+                    *constant_idx += 3; // 3 round constants used from the flat list
+                    *offset += 1; // first row used for fixed columns and initial state
+
+                    let after_arc = [
+                        state[0].value().map(|v| *v + rc0),
+                        state[1].value().map(|v| *v + rc1),
+                        state[2].value().map(|v| *v + rc2)
+                    ];
+
+                    state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_arc[0])?;
+                    state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_arc[1])?;
+                    state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_arc[2])?;
+
+                    Ok(())
+                };
+
                 // helper function for computing one rescue round
                 let rescue_round = |
                     region: &mut Region<F>,
@@ -703,25 +732,23 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     // MDS Multiplication helper function
                     mds_mul(state, region, offset)?;
 
-                    // assign the needed round constants to the fixed column for gate to read from, use local vars for state
-                    let rc0 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx]).unwrap();
-                    let rc1 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 1]).unwrap();
-                    let rc2 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 2]).unwrap();
+                    // Add/Inject Round Constants helper function
+                    inject_rcs(state, region, offset, constant_idx)?;
+                    
+                    // inverse SubBytes
+                    config.s_sub_bytes_inv.enable(region, *offset)?;
+                    *offset += 1;
 
-                    // TODO: turn this into a helper function, then add inverse sbox
-                    config.circuit_params.s_add_rcs.enable(region, *offset)?; // enable the ARC selector 
-                    *constant_idx += 3; // 3 round constants used from the flat list
-                    *offset += 1; // first row used for fixed columns and initial state
-
-                    let after_arc = [
-                        state[0].value().map(|v| *v + rc0),
-                        state[1].value().map(|v| *v + rc1),
-                        state[2].value().map(|v| *v + rc2)
+                    let alpa_inv_bytes = config.permutation_params.alpha_inv.to_repr();
+                    let after_sb_inv = [
+                        state[0].value().map(|v| v.pow(config.permutation_params.alpha_inv)),
+                        state[1].value().map(|v| v.pow(config.permutation_params.alpha_inv)),
+                        state[2].value().map(|v| v.pow(config.permutation_params.alpha_inv))
                     ];
 
-                    state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_arc[0])?;
-                    state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_arc[1])?;
-                    state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_arc[2])?;
+                    state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb_inv[0])?;
+                    state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_sb_inv[1])?;
+                    state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_sb_inv[2])?;
 
                     Ok(())
                 };
