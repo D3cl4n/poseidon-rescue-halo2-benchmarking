@@ -72,7 +72,7 @@ struct RescuePrime<F: PrimeField> {
     common_params: PermutationParameters<F>,
     rounds: usize,
     alpha: F,
-    alpha_inv: F
+    alpha_inv: u64
 }
 
 // struture for common circuit parameters
@@ -737,12 +737,13 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     // inverse SubBytes
                     config.s_sub_bytes_inv.enable(region, *offset)?;
                     *offset += 1;
+                    
+                    let alpha_inv_slice: &[u64] = &[config.permutation_params.alpha_inv];
 
-                    let alpha_inv_bytes = config.permutation_params.alpha_inv.to_repr();
                     let after_sb_inv = [
-                        state[0].value().map(|v| v.pow(alpha_inv_bytes)),
-                        state[1].value().map(|v| v.pow(alpha_inv_bytes)),
-                        state[2].value().map(|v| v.pow(alpha_inv_bytes))
+                        state[0].value().map(|v| v.pow(alpha_inv_slice)),
+                        state[1].value().map(|v| v.pow(alpha_inv_slice)),
+                        state[2].value().map(|v| v.pow(alpha_inv_slice))
                     ];
 
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb_inv[0])?;
