@@ -762,6 +762,11 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     Ok(())
                 };
 
+                // perform the Rescue-Prime rounds
+                for _ in 0..config.permutation_params.rounds {
+                    rescue_round(&mut region, &mut state, &mut constant_idx, &mut offset)?;
+                }
+
                 Ok([Number(state[0].clone()), Number(state[1].clone()), Number(state[2].clone())])
             }
         )
