@@ -125,8 +125,6 @@ struct PoseidonCircuit<F: PrimeField> {
     s0: Value<F>, 
     s1: Value<F>, 
     s2: Value<F>,
-    full_rounds: usize,
-    partial_rounds: usize
 }
 
 // Rescue-Prime circuit structure
@@ -135,7 +133,7 @@ struct RescueCircuit<F: PrimeField> {
     s0: Value<F>, 
     s1: Value<F>, 
     s2: Value<F>,
-    rounds: usize
+
 }
 
 // implement the Chip trait for PoseidonChip
@@ -868,5 +866,29 @@ impl<F: PrimeField> Circuit<F> for PoseidonCircuit<F> {
 
 // main function
 fn main() {
-    println!("Hello, world!");
+    use halo2_proofs::dev::MockProver;
+    use halo2curves::bls12381::Fr;
+    println!("[*] Running Halo2 Poseidon_x5_255_3 permutation circuit");
+
+    // input words per StarkWare test cases
+    let init_s0 = Fr::from(0);
+    let init_s1 = Fr::from(1);
+    let init_s2 = Fr::from(2);
+
+    // circuit struct 
+    let circuit = PoseidonCircuit {
+        s0: Value::known(init_s0),
+        s1: Value::known(init_s1),
+        s2: Value::known(init_s2),
+    };
+
+    let k = 10;
+    let expected = vec![
+        Fr::from_str_vartime("18456658763349757341014058622209659766100673761449600566550821987295786346378").unwrap(),
+        Fr::from_str_vartime("37068251774887509885063625701815026138353041152735229476479055620962268601796").unwrap(),
+        Fr::from_str_vartime("26763157702141528937904191329664859174584798817251788852101947537759678822298").unwrap()
+    ];
+
+    let prover = MockProver::run(k, &circuit, vec![expected]).unwrap();
+    assert_eq!(prover.verify(), Ok(()));
 }
