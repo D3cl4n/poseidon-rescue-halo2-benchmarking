@@ -119,7 +119,7 @@ struct RescueChip<F: PrimeField> {
     _marker: PhantomData<F>,
 }
 
-// Poseidon circuit structure
+// Poseidon circuit structure TODO: is this worth abstraction if I need two synthesizing calls anyways?
 #[derive(Default)]
 struct PoseidonCircuit<F: PrimeField> {
     s0: Value<F>, 
@@ -269,8 +269,8 @@ fn create_full_sbox_gate_ps<F: PrimeField>(
 }
 
 // helper functions for creating Rescue-Prime specific gates
-// alpha = 3
-// alpha_inv = 12297829382473034371 = inverse(3, p-1)
+// alpha = 5
+// alpha_inv = 20974350070050476191779096203274386335076221000211055129041463479975432473805 = inverse(5, p-1)
 fn create_sbox_gate_rs<F: PrimeField>(
     meta: &mut ConstraintSystem<F>, 
     advice: [Column<Advice>; 3],
@@ -286,9 +286,9 @@ fn create_sbox_gate_rs<F: PrimeField>(
         let a2_next = meta.query_advice(advice[2], Rotation::next());
 
         vec![
-            s_sub_bytes.clone() * (a0_next - (a0.clone()*a0.clone()*a0)),
-            s_sub_bytes.clone() * (a1_next - (a1.clone()*a1.clone()*a1)),
-            s_sub_bytes * (a2_next - (a2.clone()*a2.clone()*a2))
+            s_sub_bytes.clone() * (a0_next - (a0.clone()*a0.clone()*a0.clone()*a0.clone()*a0)),
+            s_sub_bytes.clone() * (a1_next - (a1.clone()*a1.clone()*a1.clone()*a1.clone()*a1)),
+            s_sub_bytes * (a2_next - (a2.clone()*a2.clone()*a2.clone()*a2.clone()*a2))
         ]
     });
 }
@@ -309,9 +309,9 @@ fn create_sbox_inv_gate_rs<F: PrimeField>(
 
         // constrain a_next^alpha = a_current instead of a_next = a_current^alpha_inv
         vec![
-            s_sub_bytes_inv.clone() * (a0 - (a0_next.clone() * a0_next.clone() * a0_next)),
-            s_sub_bytes_inv.clone() * (a1 - (a1_next.clone() * a1_next.clone() * a1_next)),
-            s_sub_bytes_inv * (a2 - (a2_next.clone() * a2_next.clone() * a2_next))
+            s_sub_bytes_inv.clone() * (a0 - (a0_next.clone()*a0_next.clone()*a0_next.clone()*a0_next.clone()*a0_next)),
+            s_sub_bytes_inv.clone() * (a1 - (a1_next.clone()*a1_next.clone()*a1_next.clone()*a1_next.clone()*a1_next)),
+            s_sub_bytes_inv * (a2 - (a2_next.clone()*a2_next.clone()*a2_next.clone()*a2_next.clone()*a2_next))
         ]
     });
 }
@@ -627,7 +627,6 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
         a2: Value<F>
     ) -> Result<[Self::Num; 3], Error> {
         let config = self.config();
-        // TODO: fill this in, potentially use different MDS than poseidon per the other test case
         layouter.assign_region(
             || "Rescue-Prime_Permutation", |mut region| {
                 let mut constant_idx: usize = 0; // index into round constants
@@ -641,9 +640,10 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                 ];
 
                 // helper function for power of 3 for SubBytes (in-place modification)
-                let pow3 = |a: F| -> F {
+                let pow5 = |a: F| -> F {
                     let temp = a * a; // a^2
-                    a * temp // a^3
+                    let temp_1 = temp * temp; // a^4
+                    a * temp_1 // a^5
                 };
 
                 // helper function for MDS multiplication
@@ -738,9 +738,9 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     *offset += 1;
 
                     let after_sb = [
-                        state[0].value().map(|v| pow3(*v)),
-                        state[1].value().map(|v| pow3(*v)),
-                        state[2].value().map(|v| pow3(*v))
+                        state[0].value().map(|v| pow5(*v)),
+                        state[1].value().map(|v| pow5(*v)),
+                        state[2].value().map(|v| pow5(*v))
                     ];
 
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb[0])?;
@@ -867,7 +867,6 @@ impl<F: PrimeField> Circuit<F> for PoseidonCircuit<F> {
 fn main() {
     use halo2_proofs::dev::MockProver;
     use halo2curves::bls12381::Fr;
-    println!("[*] Running Halo2 Poseidon_x5_255_3 permutation circuit");
 
     // input words per StarkWare test cases
     let init_s0 = Fr::from(0);
