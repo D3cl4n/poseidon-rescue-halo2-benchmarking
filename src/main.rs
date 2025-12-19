@@ -690,6 +690,9 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     let rc0 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx]).unwrap();
                     let rc1 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 1]).unwrap();
                     let rc2 = F::from_str_vartime(ROUND_CONSTANTS_RS[*constant_idx + 2]).unwrap();
+                    region.assign_fixed(|| "c0", config.circuit_params.fixed[0], *offset, || Value::known(rc0))?;
+                    region.assign_fixed(|| "c1", config.circuit_params.fixed[1], *offset, || Value::known(rc1))?;
+                    region.assign_fixed(|| "c2", config.circuit_params.fixed[2], *offset, || Value::known(rc2))?;
 
                     config.circuit_params.s_add_rcs.enable(region, *offset)?; // enable the ARC selector 
                     *constant_idx += 3; // 3 round constants used from the flat list
