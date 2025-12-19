@@ -429,6 +429,23 @@ impl<F: PrimeField, P: PermutationParams<F>> RescueChip<F, P> {
     }
 }
 
+// trait for the sub-functions of the circuit
+trait PermutationInstructions<F: PrimeField>: Chip<F> {
+    type Num;
+
+    // expose a value as public for
+    fn expose_as_public(&self, layouter: impl Layouter<F>, num: Self::Num, row: usize) -> Result<(), Error>;
+
+    // permutation
+    fn permute(
+        &self, 
+        layouter: impl Layouter<F>,
+        a0: Value<F>,
+        a1: Value<F>,
+        a2: Value<F>
+    ) -> Result<[Self::Num; 3], Error>;
+}
+
 // main function
 fn main() {
     println!("Hello, world!");
