@@ -596,8 +596,7 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
 }
 
 // implementation of the PermutationInstructions trait for the RescueChip
-// TODO: review if this is sketchy?
-impl<F: PrimeField + std::convert::AsRef<[u64]>> PermutationInstructions<F> for RescueChip<F> {
+impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
     type Num = Number<F>;
 
     fn expose_as_public(&self, mut layouter: impl Layouter<F>, num: Self::Num, row: usize) -> Result<(), Error> {
@@ -739,11 +738,11 @@ impl<F: PrimeField + std::convert::AsRef<[u64]>> PermutationInstructions<F> for 
                     config.s_sub_bytes_inv.enable(region, *offset)?;
                     *offset += 1;
 
-                    let alpa_inv_bytes = config.permutation_params.alpha_inv.to_repr();
+                    let alpha_inv_bytes = config.permutation_params.alpha_inv.to_repr();
                     let after_sb_inv = [
-                        state[0].value().map(|v| v.pow(config.permutation_params.alpha_inv)),
-                        state[1].value().map(|v| v.pow(config.permutation_params.alpha_inv)),
-                        state[2].value().map(|v| v.pow(config.permutation_params.alpha_inv))
+                        state[0].value().map(|v| v.pow(alpha_inv_bytes)),
+                        state[1].value().map(|v| v.pow(alpha_inv_bytes)),
+                        state[2].value().map(|v| v.pow(alpha_inv_bytes))
                     ];
 
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb_inv[0])?;
