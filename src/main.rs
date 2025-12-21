@@ -3,6 +3,7 @@ use ff::PrimeField;
 use num_bigint::BigUint;
 use std::fmt::Debug;
 use std::str::FromStr;
+use std::time::{Instant, Duration};
 use halo2_proofs::{
     circuit::{AssignedCell, Region, Chip, Layouter, SimpleFloorPlanner, Value},
     plonk::{Advice, Fixed, Circuit, Column, ConstraintSystem, Error, Instance, Selector, Expression},
@@ -900,10 +901,6 @@ impl<F: PrimeField> Circuit<F> for RescueCircuit<F> {
             self.s2
         )?;
 
-        println!("{:?}", result[0].0.clone());
-        println!("{:?}", result[1].0.clone());
-        println!("{:?}", result[2].0.clone());
-
         chip.expose_as_public(layouter.namespace(|| "result_s0_rs"), Number(result[0].0.clone()), 0)?;
         chip.expose_as_public(layouter.namespace(|| "result_s1_rs"), Number(result[1].0.clone()), 1)?;
         chip.expose_as_public(layouter.namespace(|| "result_s2_rs"), Number(result[2].0.clone()), 2)?;
@@ -911,6 +908,7 @@ impl<F: PrimeField> Circuit<F> for RescueCircuit<F> {
         Ok(())
     }
 }
+
 
 // main function
 fn main() {
@@ -929,7 +927,7 @@ fn main() {
         s2: Value::known(init_s2),
     };
 
-    let k = 10;
+    let k: u32 = 10;
     let expected_ps = vec![
         Fr::from_str_vartime("18456658763349757341014058622209659766100673761449600566550821987295786346378").unwrap(),
         Fr::from_str_vartime("37068251774887509885063625701815026138353041152735229476479055620962268601796").unwrap(),
