@@ -454,6 +454,7 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
             || "Poseidon_Permutation", |mut region| {
                 let mut constant_idx: usize = 0; // index into round constants
                 let mut offset: usize = 0; // row index for computations on state
+                let mut advice_cell_ctr: usize = 0; 
 
                 // initial state
                 let mut state = [
@@ -461,6 +462,8 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                     region.assign_advice(|| "state_1", config.circuit_params.advice[1], offset, || a1)?, 
                     region.assign_advice(|| "state_2", config.circuit_params.advice[2], offset, || a2)?
                 ];
+
+                advice_cell_ctr += 3; // 3 used by loading the initial state
 
                 // helper function for power of 5 for SubBytes (in-place modification)
                 let pow5 = |a: F| -> F {
@@ -475,7 +478,8 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                     state: &mut [AssignedCell<F, F>; 3],
                     constant_idx: &mut usize,
                     offset: &mut usize,
-                    full_round: bool
+                    full_round: bool,
+                    advice_cell_ctr: &mut usize
                 | -> Result<(), Error> {
                     // assign the needed round constants to the fixed column for gate to read from, use local vars for state
                     let rc0 = F::from_str_vartime(ROUND_CONSTANTS_PS[*constant_idx]).unwrap();
@@ -499,6 +503,7 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                     state[0] = region.assign_advice(|| "s0_arc", config.circuit_params.advice[0], *offset, || after_arc[0])?;
                     state[1] = region.assign_advice(|| "s1_arc", config.circuit_params.advice[1], *offset, || after_arc[1])?;
                     state[2] = region.assign_advice(|| "s2_arc", config.circuit_params.advice[2], *offset, || after_arc[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     // SubBytes based on parameter for full or partial round (partial round only applies to state[0])
                     if full_round == true {
@@ -514,6 +519,7 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                         state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb[0])?;
                         state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_sb[1])?;
                         state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_sb[2])?;
+                        *advice_cell_ctr += 3; // increment number of advice cells used
                     }
 
                     else {
@@ -523,6 +529,7 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                         // copy other values to new offset, without modification
                         region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || state[1].value().copied())?;
                         region.assign_advice(|| "s1_sb", config.circuit_params.advice[2], *offset, || state[2].value().copied())?;
+                        *advice_cell_ctr += 3; // increment number of advice cells used
                     }
 
                     // MixLayer
@@ -571,27 +578,30 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                     state[0] = region.assign_advice(|| "s0_ml", config.circuit_params.advice[0], *offset, || after_ml[0])?;
                     state[1] = region.assign_advice(|| "s1_ml", config.circuit_params.advice[1], *offset, || after_ml[1])?;
                     state[2] = region.assign_advice(|| "s2_ml", config.circuit_params.advice[2], *offset, || after_ml[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     Ok(())
                 };
 
                 // half of the full rounds
                 for _ in 0..(config.permutation_params.full_rounds / 2) { 
-                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, true)?;
+                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, true, &mut advice_cell_ctr)?;
                 }
 
                 // all of the partial rounds
                 for _ in 0..config.permutation_params.partial_rounds {
-                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, false)?;
+                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, false, &mut advice_cell_ctr)?;
                 }
 
                 // second half of the full rounds
                 for _ in 0..(config.permutation_params.full_rounds / 2) {
-                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, true)?;
+                    poseidon_round(&mut region, &mut state, &mut constant_idx, &mut offset, true, &mut advice_cell_ctr)?;
                 }
 
                 // log the number of rows used for Poseidon
                 println!("Poseidon rows used: {}", offset);
+                // log the number of advice cells used for Poseidon
+                println!("Poseidon advice cells used: {}", advice_cell_ctr);
 
                 Ok([Number(state[0].clone()), Number(state[1].clone()), Number(state[2].clone())])
             }
@@ -618,6 +628,7 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
         layouter.assign_region(
             || "Rescue-Prime_Permutation", |mut region| {
                 let mut offset: usize = 0; // row index for computations on state
+                let mut advice_cell_ctr: usize = 0; 
 
                 // initial state
                 let mut state = [
@@ -625,6 +636,8 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     region.assign_advice(|| "state_1", config.circuit_params.advice[1], offset, || a1)?, 
                     region.assign_advice(|| "state_2", config.circuit_params.advice[2], offset, || a2)?
                 ];
+
+                advice_cell_ctr += 3;
 
                 // helper function for power of 5 for SubBytes (in-place modification)
                 let pow5 = |a: F| -> F {
@@ -635,7 +648,7 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
 
                 // helper function for MDS multiplication
                 let mds_mul = |
-                    state: &mut [AssignedCell<F, F>; 3], region: &mut Region<F>, offset: &mut usize
+                    state: &mut [AssignedCell<F, F>; 3], region: &mut Region<F>, offset: &mut usize, advice_cell_ctr: &mut usize
                 | -> Result<(), Error> {
                     let mds = [
                         [
@@ -682,6 +695,7 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     state[0] = region.assign_advice(|| "s0_ml", config.circuit_params.advice[0], *offset, || after_ml[0])?;
                     state[1] = region.assign_advice(|| "s1_ml", config.circuit_params.advice[1], *offset, || after_ml[1])?;
                     state[2] = region.assign_advice(|| "s2_ml", config.circuit_params.advice[2], *offset, || after_ml[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     Ok(())
                 };
@@ -693,7 +707,8 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     offset: &mut usize, 
                     idx_0: usize,
                     idx_1: usize,
-                    idx_2: usize
+                    idx_2: usize, 
+                    advice_cell_ctr: &mut usize
                 | -> Result<(), Error> {
                     // assign the needed round constants to the fixed column for gate to read from, use local vars for state
                     let rc0 = F::from_str_vartime(ROUND_CONSTANTS_RS[idx_0]).unwrap();
@@ -715,6 +730,7 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_arc[0])?;
                     state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_arc[1])?;
                     state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_arc[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     Ok(())
                 };
@@ -725,6 +741,7 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     state: &mut [AssignedCell<F, F>; 3],
                     round: usize,
                     offset: &mut usize,
+                    advice_cell_ctr: &mut usize
                 | -> Result<(), Error> {
                     config.s_sub_bytes.enable(region, *offset)?;
                     *offset += 1;
@@ -738,14 +755,15 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb[0])?;
                     state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_sb[1])?;
                     state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_sb[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     // MDS Multiplication helper function
-                    mds_mul(state, region, offset)?;
+                    mds_mul(state, region, offset, advice_cell_ctr)?;
 
                     // Add/Inject Round Constants helper function
                     let state_size: usize = config.permutation_params.common_params.state_size;
                     let mut base_idx: usize = 2*round*state_size;
-                    inject_rcs(state, region, offset, base_idx, base_idx+1, base_idx+2)?;
+                    inject_rcs(state, region, offset, base_idx, base_idx+1, base_idx+2, advice_cell_ctr)?;
                     
                     // inverse SubBytes
                     config.s_sub_bytes_inv.enable(region, *offset)?;
@@ -762,24 +780,27 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                     state[0] = region.assign_advice(|| "s0_sb", config.circuit_params.advice[0], *offset, || after_sb_inv[0])?;
                     state[1] = region.assign_advice(|| "s1_sb", config.circuit_params.advice[1], *offset, || after_sb_inv[1])?;
                     state[2] = region.assign_advice(|| "s2_sb", config.circuit_params.advice[2], *offset, || after_sb_inv[2])?;
+                    *advice_cell_ctr += 3; // increment number of advice cells used
 
                     // second mds multiplication
-                    mds_mul(state, region, offset)?;
+                    mds_mul(state, region, offset, advice_cell_ctr)?;
 
                     // second inject/add round constants
                     base_idx = 2*round*state_size+state_size;
-                    inject_rcs(state, region, offset, base_idx, base_idx+1, base_idx+2)?;
+                    inject_rcs(state, region, offset, base_idx, base_idx+1, base_idx+2, advice_cell_ctr)?;
 
                     Ok(())
                 };
 
                 // perform the Rescue-Prime rounds
                 for i in 0..config.permutation_params.rounds {
-                    rescue_round(&mut region, &mut state, i, &mut offset)?;
+                    rescue_round(&mut region, &mut state, i, &mut offset, &mut advice_cell_ctr)?;
                 }
 
                 // log the number of rows used for Rescue-Prime
                 println!("Rescue-Prime rows used: {}", offset);
+                // log the number of advice cells used for Rescue-Prime
+                println!("Rescue-Prime advice cells used: {}", advice_cell_ctr);
 
                 Ok([Number(state[0].clone()), Number(state[1].clone()), Number(state[2].clone())])
             }
