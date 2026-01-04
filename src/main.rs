@@ -635,13 +635,13 @@ impl<F: PrimeField> PermutationInstructions<F> for PoseidonChip<F> {
                 }
 
                 // log the number of rows used for Poseidon
-                println!("Poseidon rows used: {}", offset);
+                //println!("Poseidon rows used: {}", offset);
                 // log the number of advice cells used for Poseidon
-                println!("Poseidon advice cells used: {}", advice_cell_ctr);
+                //println!("Poseidon advice cells used: {}", advice_cell_ctr);
                 // log the number of fixed cells used for Poseidon
-                println!("Poseidon fixed cells used: {}", fixed_cell_ctr);
+                //println!("Poseidon fixed cells used: {}", fixed_cell_ctr);
                 // log the number of activated gates used for Poseidon
-                println!("Poseidon activated gates: {}", activated_gates_ctr);
+                //println!("Poseidon activated gates: {}", activated_gates_ctr);
 
                 Ok([Number(state[0].clone()), Number(state[1].clone()), Number(state[2].clone())])
             }
@@ -881,13 +881,13 @@ impl<F: PrimeField> PermutationInstructions<F> for RescueChip<F> {
                 }
 
                 // log the number of rows used for Rescue-Prime
-                println!("Rescue-Prime rows used: {}", offset);
+                //println!("Rescue-Prime rows used: {}", offset);
                 // log the number of advice cells used for Rescue-Prime
-                println!("Rescue-Prime advice cells used: {}", advice_cell_ctr);
+                //println!("Rescue-Prime advice cells used: {}", advice_cell_ctr);
                 // log the number of fixed cells used for Rescue-Prime
-                println!("Rescue-Prime fixed cells used: {}", fixed_cell_ctr);
+                //println!("Rescue-Prime fixed cells used: {}", fixed_cell_ctr);
                 // log the number of activated gates used for Rescue-Prime
-                println!("Rescue-Prime activated gates: {}", activated_gates_ctr);
+                //println!("Rescue-Prime activated gates: {}", activated_gates_ctr);
 
                 Ok([Number(state[0].clone()), Number(state[1].clone()), Number(state[2].clone())])
             }
@@ -991,7 +991,7 @@ impl<F: PrimeField> Circuit<F> for RescueCircuit<F> {
             alpha: F::from(5),
             alpha_inv: BigUint::from_str("20974350070050476191779096203274386335076221000211055129041463479975432473805").unwrap(),
             mds: 
-            [ // TODO: change this based on py script
+            [
                 [
                     F::from_str_vartime("343").unwrap(), 
                     F::from_str_vartime("52435875175126190479447740508185965837690552500527637822603658699938581184114").unwrap(), 
@@ -1055,8 +1055,16 @@ fn main() {
         Fr::from_str_vartime("26763157702141528937904191329664859174584798817251788852101947537759678822298").unwrap()
     ];
 
-    let prover = MockProver::run(k, &circuit_ps, vec![expected_ps]).unwrap();
-    assert_eq!(prover.verify(), Ok(()));
+    // time the MockProver runtime for Poseidon in milliseconds - 30 iterations
+    for _ in 0..30 {
+        let start_ps = Instant::now();
+        let prover = MockProver::run(k, &circuit_ps, vec![expected_ps.clone()]).unwrap();
+        let duration_ps = start_ps.elapsed();
+
+        assert_eq!(prover.verify(), Ok(()));
+        println!("Poseidon MockProver time: {} ms", duration_ps.as_millis());
+    }
+    
 
     // Rescue-Prime circuit struct
     let circuit_rs = RescueCircuit {
@@ -1071,6 +1079,14 @@ fn main() {
         Fr::from_str_vartime("47778332175771177523183464148522719206884558815624567948365727904575578981390").unwrap()
     ];
 
-    let prover_1 = MockProver::run(k, &circuit_rs, vec![expected_rs]).unwrap();
-    assert_eq!(prover_1.verify(), Ok(()));
+    // time the MockProver runtime for Rescue-Prime in milliseconds - 30 iterations
+    for _ in 0..30 {
+        let start_rs = Instant::now();
+        let prover_1 = MockProver::run(k, &circuit_rs, vec![expected_rs.clone()]).unwrap();
+        let duration_rs = start_rs.elapsed();
+
+        assert_eq!(prover_1.verify(), Ok(()));
+        println!("Rescue-Prime MockProver time: {} ms", duration_rs.as_millis());
+    }
+    
 }
