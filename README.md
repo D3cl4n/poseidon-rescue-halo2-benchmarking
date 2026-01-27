@@ -1,1 +1,1 @@
-# Halo2_Permutation_Benchmarking
+# Poseidon and Rescue-Prime Permutation Benchmarking in Halo2
